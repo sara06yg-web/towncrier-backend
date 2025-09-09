@@ -7,18 +7,31 @@ import { connectDB } from "./db.js";
 import { Tweet } from "./models/tweet.js";
 
 const app = express();
-app.use(cors());
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://tcrier.netlify.app",   
+  "https://tcrier.com",
+  "https://www.tcrier.com"
+];
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin) return cb(null, true);
+    return allowedOrigins.includes(origin)
+      ? cb(null, true)
+      : cb(new Error("Not allowed by CORS"));
+  },
+  credentials: true
+}));
+
 app.use(express.json());
 
-// connect to Mongo
 await connectDB(process.env.MONGODB_URI);
 
-// health
 app.get("/", (req, res) => {
-  res.json({ ok: true, app: "towncrier backend" });
+  res.json({ ok: true, app: "towncrier-backend" });
 });
 
-// list tweets
 app.get("/api/tweets", async (req, res) => {
   const tweets = await Tweet.find().sort({ createdAt: -1 }).lean();
   res.json(
@@ -32,7 +45,6 @@ app.get("/api/tweets", async (req, res) => {
   );
 });
 
-// create
 app.post("/api/tweets", async (req, res) => {
   const { user = "anon", text } = req.body || {};
   if (!text || !text.trim()) return res.status(400).json({ error: "text is required" });
@@ -48,7 +60,6 @@ app.post("/api/tweets", async (req, res) => {
   });
 });
 
-// like/unlike
 app.put("/api/tweets/:id/like", async (req, res) => {
   const { id } = req.params;
   const { delta = 1 } = req.body || {};
@@ -65,7 +76,6 @@ app.put("/api/tweets/:id/like", async (req, res) => {
   });
 });
 
-// delete
 app.delete("/api/tweets/:id", async (req, res) => {
   const { id } = req.params;
   const result = await Tweet.findByIdAndDelete(id);
@@ -74,4 +84,6 @@ app.delete("/api/tweets/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`API running on port ${PORT}`);
+});
